@@ -1,80 +1,14 @@
-const STORE='makb-transpo-v2-clean';
-const defaultState={
-  travel:{HUB:15,UBST:15},
-  drivers:[{id:id(),name:'MK'},{id:id(),name:'CY'}],
-  selectedDate:todayKey(),
-  schedules:{}
-};
-function id(){return Math.random().toString(36).slice(2,10)}
-function todayKey(){return new Date().toISOString().slice(0,10)}
-function clone(x){return JSON.parse(JSON.stringify(x))}
-let state=JSON.parse(localStorage.getItem(STORE)||'null')||clone(defaultState);
-if(!state.schedules[todayKey()]) state.schedules[todayKey()]=sampleJourneys();
-const $=s=>document.querySelector(s);
-const driversGrid=$('#driversGrid'), warning=$('#warning');
-function save(){localStorage.setItem(STORE,JSON.stringify(state))}
-function schedule(){return state.schedules[state.selectedDate] ||= []}
-function min(t){const [h,m]=t.split(':').map(Number);return h*60+m}
-function time(m){m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
-function dur(j){if(j.from==='H'&&j.to==='UB')return Number(state.travel.HUB)||15;if(j.from==='UB'&&j.to==='ST')return Number(state.travel.UBST)||15;return 15}
-function end(j){return min(j.time)+dur(j)}
-function label(loc){return ({H:'Home',UB:'Unit Base',ST:'SET'}[loc]||loc)}
-function route(j){return `${label(j.from)} → ${label(j.to)}`}
-function overlaps(a,b){return min(a.time)<end(b)&&min(b.time)<end(a)}
-function sampleJourneys(){const mk='mk', cy='cy';return []}
-function ensureOldIds(){if(state.drivers.length&&state.drivers[0].id!=='mk'){state.drivers[0].id='mk'}if(state.drivers.length>1&&state.drivers[1].id!=='cy'){state.drivers[1].id='cy'}}
-ensureOldIds();
-if(schedule().length===0 && state.selectedDate===todayKey()){
- state.schedules[state.selectedDate]=[
-  {id:id(),p:'E',from:'H',to:'UB',time:'06:55',driver:'mk'},
-  {id:id(),p:'JOS',from:'H',to:'UB',time:'08:10',driver:'mk'},
-  {id:id(),p:'M',from:'H',to:'UB',time:'08:45',driver:'mk'},
-  {id:id(),p:'M & JOS',from:'UB',to:'ST',time:'09:35',driver:'mk'},
-  {id:id(),p:'ROS',from:'H',to:'UB',time:'07:20',driver:'cy'},
-  {id:id(),p:'JB',from:'H',to:'UB',time:'07:50',driver:'cy'},
-  {id:id(),p:'E',from:'UB',to:'ST',time:'08:15',driver:'cy'},
-  {id:id(),p:'JB & ROS',from:'UB',to:'ST',time:'08:50',driver:'cy'}
- ];
-}
-function conflicts(){const out=[];for(const d of state.drivers){const js=schedule().filter(j=>j.driver===d.id);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlaps(js[i],js[k]))out.push({a:js[i],b:js[k],driver:d});}return out}
-function isFree(driverId,trip,ignore){return !schedule().some(j=>j.driver===driverId&&j.id!==ignore&&overlaps(j,trip))}
-function render(focusId=null){
- const bad=new Set(); const cs=conflicts(); cs.forEach(c=>{bad.add(c.a.id);bad.add(c.b.id)});
- driversGrid.innerHTML='';
- state.drivers.forEach(d=>{
-  const card=document.createElement('section');card.className='driver-card';
-  const hasBad=schedule().some(j=>j.driver===d.id&&bad.has(j.id));
-  card.innerHTML=`<div class="driver-head"><div class="driver-title">🚗 ${d.name}</div><div class="status ${hasBad?'bad':''}">${hasBad?'Conflict 🔴':'Available ✅'}</div></div><div class="list"></div>`;
-  const list=card.querySelector('.list');
-  schedule().filter(j=>j.driver===d.id).sort((a,b)=>min(a.time)-min(b.time)).forEach(j=>{
-   const btn=document.createElement('button');btn.className=`journey ${bad.has(j.id)?'conflict':''} ${j.id===focusId?'focus':''}`;btn.id='trip-'+j.id;
-   btn.innerHTML=`<div class="time">${j.time}</div><div><div class="route">${route(j)}</div><div class="arrive">Arrive ${time(end(j))}</div></div><div class="bubble">${j.p}</div>`;
-   btn.onclick=()=>openJourney(j); list.appendChild(btn);
-  });
-  driversGrid.appendChild(card);
- });
- renderWarning(cs,focusId); save();
-}
-function renderWarning(cs,focusId){
- if(!cs.length){warning.classList.add('hidden');warning.innerHTML='';return}
- const c=cs[0]; const newer=focusId==c.a.id?c.a:focusId==c.b.id?c.b:c.b; const old=newer.id===c.a.id?c.b:c.a;
- const alternatives=state.drivers.filter(d=>d.id!==newer.driver&&isFree(d.id,newer,newer.id));
- warning.classList.remove('hidden');
- warning.innerHTML=`🔴 <b>Conflict</b><br>${c.driver.name} is double booked.<br><br>Clash 1: <b>${old.p}</b> ${route(old)} ${old.time}–${time(end(old))}<br>Clash 2: <b>${newer.p}</b> ${route(newer)} ${newer.time}–${time(end(newer))}<br>${alternatives.length?`<button data-move="${alternatives[0].id}">Move ${newer.p} to ${alternatives[0].name}</button>`:'<br>No other driver is free at this time.'}`;
- const mv=warning.querySelector('[data-move]'); if(mv) mv.onclick=()=>{newer.driver=mv.dataset.move;render(newer.id)};
- setTimeout(()=>document.getElementById('trip-'+old.id)?.scrollIntoView({behavior:'smooth',block:'center'}),80);
-}
-function fillDriverSelect(){const sel=$('#driverInput');sel.innerHTML=state.drivers.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
-function openJourney(j){fillDriverSelect();$('#journeyTitle').textContent=j?'Edit Journey':'Add Journey';$('#journeyId').value=j?.id||'';$('#passengerInput').value=j?.p||'';$('#fromInput').value=j?.from||'H';$('#toInput').value=j?.to||'UB';$('#timeInput').value=j?.time||'09:00';$('#driverInput').value=j?.driver||state.drivers[0].id;$('#deleteJourneyBtn').classList.toggle('hidden',!j);journeyDialog.showModal()}
-$('#journeyForm').onsubmit=e=>{e.preventDefault();const existing=$('#journeyId').value;const j={id:existing||id(),p:$('#passengerInput').value.trim(),from:$('#fromInput').value,to:$('#toInput').value,time:$('#timeInput').value,driver:$('#driverInput').value};if(existing){const i=schedule().findIndex(x=>x.id===existing);schedule()[i]=j}else schedule().push(j);journeyDialog.close();render(j.id)};
-$('#deleteJourneyBtn').onclick=()=>{state.schedules[state.selectedDate]=schedule().filter(j=>j.id!==$('#journeyId').value);journeyDialog.close();render()};
-$('#addJourneyBtn').onclick=()=>openJourney();
-$('#settingsBtn').onclick=()=>{renderSettings();settingsDialog.showModal()};
-function renderSettings(){ $('#timeHUB').value=state.travel.HUB; $('#timeUBST').value=state.travel.UBST; const box=$('#driversSettings'); box.innerHTML=''; state.drivers.forEach((d,i)=>{const row=document.createElement('div');row.className='driver-setting';row.innerHTML=`<label>Driver ${i+1}<input data-driver-name="${d.id}" value="${d.name}"></label><button type="button" data-del="${d.id}" ${state.drivers.length<=1?'disabled':''}>Delete</button>`;box.appendChild(row)});box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Delete this driver? Journeys stay but will need another driver.')){state.drivers=state.drivers.filter(d=>d.id!==b.dataset.del);schedule().forEach(j=>{if(j.driver===b.dataset.del)j.driver=state.drivers[0].id});renderSettings()}})}
-$('#addDriverBtn').onclick=()=>{if(state.drivers.length>=5){alert('Maximum 5 drivers');return}state.drivers.push({id:id(),name:'Driver '+(state.drivers.length+1)});renderSettings()};
-$('#settingsForm').onsubmit=e=>{e.preventDefault();state.travel.HUB=Number($('#timeHUB').value)||15;state.travel.UBST=Number($('#timeUBST').value)||15;document.querySelectorAll('[data-driver-name]').forEach(inp=>{const d=state.drivers.find(x=>x.id===inp.dataset.driverName);if(d)d.name=inp.value.trim()||d.name});settingsDialog.close();render()};
-$('#clearBtn').onclick=()=>{if(confirm('Clear this day?')){state.schedules[state.selectedDate]=[];render()}};
-$('#copyBtn').onclick=()=>{state.schedules[state.selectedDate]=clone(state.schedules[todayKey()]||[]).map(j=>({...j,id:id()}));render()};
-$('#todayBtn').onclick=()=>{state.selectedDate=todayKey();render()};
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-render();
+const $=id=>document.getElementById(id);const today=()=>new Date().toISOString().slice(0,10);const key='tc_v3_data';
+const starter={settings:{tHU:15,tUS:15},drivers:['MK','CY'],days:{}};
+const sample=()=>[{id:uid(),p:'E',from:'Home',to:'Unit Base',time:'06:55',driver:'MK'},{id:uid(),p:'JOS',from:'Home',to:'Unit Base',time:'08:10',driver:'MK'},{id:uid(),p:'M',from:'Home',to:'Unit Base',time:'08:45',driver:'MK'},{id:uid(),p:'M & JOS',from:'Unit Base',to:'SET',time:'09:35',driver:'MK'},{id:uid(),p:'ROS',from:'Home',to:'Unit Base',time:'07:20',driver:'CY'},{id:uid(),p:'JB',from:'Home',to:'Unit Base',time:'07:50',driver:'CY'},{id:uid(),p:'E',from:'Unit Base',to:'SET',time:'08:15',driver:'CY'},{id:uid(),p:'JB & ROS',from:'Unit Base',to:'SET',time:'08:50',driver:'CY'}];
+let data=JSON.parse(localStorage.getItem(key)||'null')||starter;let current=today();if(!data.days[current])data.days[current]=sample();
+function uid(){return Math.random().toString(36).slice(2,10)}function save(){localStorage.setItem(key,JSON.stringify(data))}function mins(t){let[a,b]=t.split(':').map(Number);return a*60+b}function clock(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}function dur(j){return j.from==='Home'&&j.to==='Unit Base'?+data.settings.tHU:j.from==='Unit Base'&&j.to==='SET'?+data.settings.tUS:15}function end(j){return mins(j.time)+dur(j)}function overlaps(a,b){return mins(a.time)<end(b)&&mins(b.time)<end(a)}function journeys(){return data.days[current]||(data.days[current]=[])}
+function conflicts(){let out=[];for(const d of data.drivers){let js=journeys().filter(j=>j.driver===d);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlaps(js[i],js[k]))out.push([js[i],js[k],d]);}return out}function free(d,j,ignore){return !journeys().some(x=>x.driver===d&&x.id!==ignore&&overlaps(x,j))}
+function render(focus=null){$('datePick').value=current;let cs=conflicts(),bad=new Set();cs.forEach(([a,b])=>{bad.add(a.id);bad.add(b.id)});$('drivers').innerHTML='';for(const d of data.drivers){let card=document.createElement('div');card.className='driver';let has=journeys().some(j=>j.driver===d&&bad.has(j.id));card.innerHTML=`<div class="driverHead"><h2>🚗 ${d}</h2><span class="status ${has?'bad':''}">${has?'Conflict 🔴':'Available ✅'}</span></div>`;journeys().filter(j=>j.driver===d).sort((a,b)=>mins(a.time)-mins(b.time)).forEach(j=>{let btn=document.createElement('button');btn.id='trip-'+j.id;btn.className='journey '+(bad.has(j.id)?'conflict ':'')+(j.id===focus?'newConflict':'');btn.innerHTML=`<div class="time">${j.time}</div><div><div class="route">${j.from} → ${j.to}</div><div class="arrive">Arrive ${clock(end(j))}</div></div><div class="bubble">${j.p}</div>`;btn.onclick=()=>openJourney(j);card.appendChild(btn)});$('drivers').appendChild(card)}showWarning(cs,focus);save()}
+function showWarning(cs,focus){let w=$('warning');if(!cs.length){w.classList.add('hidden');w.innerHTML='';return}w.classList.remove('hidden');let[a,b,d]=cs[0],newer=focus&&(a.id===focus||b.id===focus)?journeys().find(j=>j.id===focus):b,old=newer.id===a.id?b:a;let fixes=data.drivers.filter(x=>x!==newer.driver&&free(x,newer,newer.id));w.innerHTML=`🔴 <b>Conflict</b><br>${newer.driver} is already booked.<br><br><b>${old.p}</b> ${old.from} → ${old.to}, ${old.time}–${clock(end(old))}<br><b>${newer.p}</b> ${newer.from} → ${newer.to}, ${newer.time}–${clock(end(newer))}<br><br>${fixes.length?fixes.map(f=>`<button onclick="moveTrip('${newer.id}','${f}')">Move ${newer.p} to ${f}</button>`).join(' '):'No driver free at this time.'}`;setTimeout(()=>document.getElementById('trip-'+old.id)?.scrollIntoView({behavior:'smooth',block:'center'}),100)}
+function moveTrip(id,d){let j=journeys().find(x=>x.id===id);if(j)j.driver=d;render(id)}window.moveTrip=moveTrip;
+function fillDrivers(sel,val){sel.innerHTML=data.drivers.map(d=>`<option ${d===val?'selected':''}>${d}</option>`).join('')}function openJourney(j={}){$('journeyId').value=j.id||'';$('passenger').value=j.p||'';$('from').value=j.from||'Home';$('to').value=j.to||'Unit Base';$('time').value=j.time||'09:00';fillDrivers($('driver'),j.driver||data.drivers[0]);$('deleteJourney').style.display=j.id?'block':'none';$('journeyDialog').showModal()}
+$('journeyForm').onsubmit=e=>{e.preventDefault();let id=$('journeyId').value||uid();let j={id,p:$('passenger').value,from:$('from').value,to:$('to').value,time:$('time').value,driver:$('driver').value};let arr=journeys(),i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=j;else arr.push(j);$('journeyDialog').close();render(id)};$('deleteJourney').onclick=()=>{data.days[current]=journeys().filter(j=>j.id!==$('journeyId').value);$('journeyDialog').close();render()};$('addJourney').onclick=()=>openJourney();
+$('datePick').onchange=e=>{current=e.target.value;if(!data.days[current])data.days[current]=[];render()};$('todayBtn').onclick=()=>{current=today();if(!data.days[current])data.days[current]=sample();render()};$('copyToday').onclick=()=>{let t=today();data.days[current]=(data.days[t]||sample()).map(j=>({...j,id:uid()}));render()};$('clearDay').onclick=()=>{if(confirm('Clear this day?')){data.days[current]=[];render()}};
+$('settingsBtn').onclick=()=>{ $('tHU').value=data.settings.tHU;$('tUS').value=data.settings.tUS;drawDriverSettings();$('settingsDialog').showModal()};function drawDriverSettings(){let box=$('driverSettings');box.innerHTML='';data.drivers.forEach((d,i)=>{let r=document.createElement('div');r.className='driverRow';r.innerHTML=`<input value="${d}" data-i="${i}"><button type="button" ${data.drivers.length<2?'disabled':''} onclick="removeDriver(${i})">Remove</button>`;box.appendChild(r)})}function removeDriver(i){let old=data.drivers[i];if(!confirm('Remove '+old+'?'))return;data.drivers.splice(i,1);for(const day of Object.values(data.days))day.forEach(j=>{if(j.driver===old)j.driver=data.drivers[0]});drawDriverSettings()}window.removeDriver=removeDriver;$('addDriver').onclick=()=>{if(data.drivers.length>=5)return alert('Maximum 5 drivers');data.drivers.push('Driver '+data.drivers.length);drawDriverSettings()};$('settingsForm').onsubmit=e=>{e.preventDefault();let old=[...data.drivers];data.settings.tHU=+$('tHU').value||15;data.settings.tUS=+$('tUS').value||15;data.drivers=[...document.querySelectorAll('#driverSettings input')].map(x=>x.value.trim()).filter(Boolean).slice(0,5);old.forEach((name,i)=>{let nn=data.drivers[i];if(nn&&nn!==name)for(const day of Object.values(data.days))day.forEach(j=>{if(j.driver===name)j.driver=nn})});$('settingsDialog').close();render()};
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});render();
