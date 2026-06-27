@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MakB TRANSPO</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="van">🚗</div>
+    <div>
+      <h1>MakB TRANSPO</h1>
+      <p>Home · Unit Base · SET</p>
+    </div>
+    <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+  </header>
+
+  <main>
+    <section class="date-card">
+      <button id="prevDay" class="date-btn">◀</button>
+      <div class="date-centre">
+        <div id="scheduleDateLabel" class="date-label">Today</div>
+        <div id="scheduleStatus" class="status-pill">LIVE</div>
+      </div>
+      <button id="nextDay" class="date-btn">▶</button>
+    </section>
+
+    <section class="draft-actions">
+      <button id="todayBtn">Today</button>
+      <button id="tomorrowBtn">Tomorrow Draft</button>
+      <button id="copyTodayBtn">Copy Today → This Day</button>
+    </section>
+
+    <section class="route-card">
+      <div class="place">
+        <div class="short">H</div>
+        <span>Home</span>
+      </div>
+      <div class="leg">
+        <b id="timeHU">15 min</b>
+        <small>Travel time</small>
+      </div>
+      <div class="place blue">
+        <div class="short">UB</div>
+        <span>Unit Base</span>
+      </div>
+      <div class="leg">
+        <b id="timeUS">15 min</b>
+        <small>Travel time</small>
+      </div>
+      <div class="place purple">
+        <div class="short">ST</div>
+        <span>SET</span>
+      </div>
+    </section>
+
+    <section id="warning" class="warning hidden"></section>
+
+    <section class="actions-row">
+      <h2 id="dayTitle">Schedule</h2>
+      <button id="addJourney" class="primary">+ Add Journey</button>
+    </section>
+
+    <section class="drivers">
+      <article class="driver mk">
+        <div class="driver-head">
+          <div class="carpic">🚗</div>
+          <div>
+            <h2>MK</h2>
+            <span id="mkStatus" class="driver-status">Available ✅</span>
+          </div>
+        </div>
+        <div id="mkList" class="journey-list"></div>
+        <button class="add-driver" data-driver="MK">+ Add to MK</button>
+      </article>
+
+      <article class="driver cy">
+        <div class="driver-head">
+          <div class="carpic">🚙</div>
+          <div>
+            <h2>CY</h2>
+            <span id="cyStatus" class="driver-status">Available ✅</span>
+          </div>
+        </div>
+        <div id="cyList" class="journey-list"></div>
+        <button class="add-driver" data-driver="CY">+ Add to CY</button>
+      </article>
+    </section>
+
+    <section class="bottom-buttons">
+      <button id="changeTimes">⏱️<span>Travel Times</span></button>
+      <button id="clearDayBtn">🧹<span>Clear This Day</span></button>
+      <button id="resetBtn">↩️<span>Reset Sample</span></button>
+      <button id="exportBtn">📋<span>Copy Text</span></button>
+    </section>
+
+    <section class="legend">
+      <span><b>H</b> = Home</span>
+      <span><b>UB</b> = Unit Base</span>
+      <span><b>ST</b> = SET</span>
+    </section>
+  </main>
+
+  <dialog id="journeyDialog">
+    <form id="journeyForm" method="dialog">
+      <h2 id="dialogTitle">Add Journey</h2>
+      <input type="hidden" id="journeyId">
+      <label>Passenger(s)
+        <input id="passengers" required placeholder="M, JO, J+R">
+      </label>
+      <label>From
+        <select id="fromLoc">
+          <option value="H">Home</option>
+          <option value="UB">Unit Base</option>
+          <option value="ST">SET</option>
+        </select>
+      </label>
+      <label>To
+        <select id="toLoc">
+          <option value="H">Home</option>
+          <option value="UB">Unit Base</option>
+          <option value="ST">SET</option>
+        </select>
+      </label>
+      <label>Leave Time
+        <input id="leaveTime" type="time" required>
+      </label>
+      <label>Driver
+        <select id="driver">
+          <option>MK</option>
+          <option>CY</option>
+        </select>
+      </label>
+      <menu>
+        <button type="button" id="deleteJourney" class="danger hidden">Delete</button>
+        <button type="button" onclick="journeyDialog.close()">Cancel</button>
+        <button class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" method="dialog">
+      <h2>Settings</h2>
+      <p class="hint">UB means Unit Base. ST means SET.</p>
+      <label>Minutes Home → Unit Base
+        <input id="setHU" type="number" min="1" max="240" required>
+      </label>
+      <label>Minutes Unit Base → SET
+        <input id="setUS" type="number" min="1" max="240" required>
+      </label>
+      <menu>
+        <button type="button" onclick="settingsDialog.close()">Cancel</button>
+        <button class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
