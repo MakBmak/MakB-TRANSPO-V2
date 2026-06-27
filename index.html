@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>MakB TRANSPO V2</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MakB TRANSPO V2.1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="app-header">
@@ -13,7 +13,7 @@
       <h1>MakB TRANSPO</h1>
       <p>H = Home · UB = Unit Base · ST = SET</p>
     </div>
-    <button id="todayBtn" class="small-btn">Today</button>
+    <button id="todayBtn" class="round-btn">Today</button>
   </header>
 
   <main>
@@ -28,67 +28,73 @@
 
     <section class="actions">
       <button id="addJourney" class="primary">+ Add Journey</button>
+      <button id="settingsBtn" class="secondary">⚙ Settings</button>
       <button id="copyToday" class="secondary">Copy Today → This Day</button>
       <button id="clearDay" class="danger-light">Clear This Day</button>
     </section>
 
     <section id="warning" class="warning hidden"></section>
-
-    <section class="driver-grid">
-      <article class="driver-card" id="mkCard">
-        <div class="driver-title"><span>🚗 MK</span><span id="mkStatus">Available</span></div>
-        <div id="mkList" class="journey-list"></div>
-      </article>
-
-      <article class="driver-card" id="cyCard">
-        <div class="driver-title"><span>🚗 CY</span><span id="cyStatus">Available</span></div>
-        <div id="cyList" class="journey-list"></div>
-      </article>
-    </section>
+    <section id="driverGrid" class="driver-grid"></section>
   </main>
 
   <dialog id="journeyDialog">
     <form id="journeyForm" method="dialog">
       <h2 id="dialogTitle">Add Journey</h2>
-      <input type="hidden" id="journeyId" />
-
-      <label>Passenger(s)
-        <input id="passengers" required placeholder="E, R, J+R" />
-      </label>
-
+      <input type="hidden" id="journeyId">
+      <label>Passenger name</label>
+      <input id="passengers" placeholder="e.g. M or M & JO" required>
       <div class="row">
-        <label>From
+        <div>
+          <label>From</label>
           <select id="fromLoc">
             <option value="H">Home</option>
             <option value="UB">Unit Base</option>
             <option value="ST">SET</option>
           </select>
-        </label>
-        <label>To
+        </div>
+        <div>
+          <label>To</label>
           <select id="toLoc">
             <option value="UB">Unit Base</option>
             <option value="ST">SET</option>
             <option value="H">Home</option>
           </select>
-        </label>
+        </div>
       </div>
-
       <div class="row">
-        <label>Leave time
-          <input id="leaveTime" type="time" required />
-        </label>
-        <label>Escort
-          <select id="driver">
-            <option>MK</option>
-            <option>CY</option>
-          </select>
-        </label>
+        <div>
+          <label>Leave time</label>
+          <input id="leaveTime" type="time" required>
+        </div>
+        <div>
+          <label>Escort / driver</label>
+          <select id="driver"></select>
+        </div>
       </div>
-
       <div class="dialog-actions">
         <button type="button" id="deleteJourney" class="danger hidden">Delete</button>
         <button type="button" id="cancelDialog" class="secondary">Cancel</button>
         <button class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" method="dialog">
+      <h2>Settings</h2>
+      <h3>Travel times</h3>
+      <label>Home → Unit Base minutes</label>
+      <input id="timeHUB" type="number" min="1" max="240" required>
+      <label>Unit Base → SET minutes</label>
+      <input id="timeUBST" type="number" min="1" max="240" required>
+
+      <h3>Drivers</h3>
+      <div id="driverSettings"></div>
+      <button type="button" id="addDriverBtn" class="secondary full">+ Add new driver</button>
+
+      <div class="dialog-actions">
+        <button type="button" id="cancelSettings" class="secondary">Cancel</button>
+        <button class="primary">Save settings</button>
       </div>
     </form>
   </dialog>
