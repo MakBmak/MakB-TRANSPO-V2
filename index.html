@@ -4,108 +4,96 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MakB TRANSPO V2</title>
-  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
 </head>
 <body>
   <header class="topbar">
     <div>
       <h1>MakB TRANSPO</h1>
-      <p class="legend">H = Home · UB = Unit Base · ST = SET</p>
+      <p>H = Home · UB = Unit Base · ST = SET</p>
     </div>
-    <button id="settingsBtn" class="small">⚙️</button>
+    <button id="todayBtn" class="pill">Today</button>
   </header>
 
-  <main>
-    <section class="date-card">
-      <button id="prevDay">◀</button>
-      <div>
-        <div id="dateTitle" class="date-title"></div>
-        <div id="scheduleStatus" class="status-pill"></div>
-      </div>
-      <button id="nextDay">▶</button>
-    </section>
-
-    <section class="actions">
-      <button id="todayBtn">Today</button>
-      <button id="tomorrowBtn">Tomorrow Draft</button>
-      <button id="copyTodayBtn">Copy Today → This Day</button>
+  <main class="wrap">
+    <section class="controls">
       <button id="addJourneyBtn" class="primary">+ Add Journey</button>
+      <button id="settingsBtn">⚙ Settings</button>
+      <button id="copyBtn">Copy Today → This Day</button>
+      <button id="clearBtn" class="danger">Clear This Day</button>
     </section>
 
     <section id="warning" class="warning hidden"></section>
-
-    <section class="dashboard">
-      <article class="driver-card">
-        <div class="driver-head"><h2>🚗 MK</h2><span id="mkStatus">Available</span></div>
-        <div id="mkList" class="journey-list"></div>
-        <button class="add-driver" data-driver="MK">+ MK Journey</button>
-      </article>
-
-      <article class="driver-card">
-        <div class="driver-head"><h2>🚗 CY</h2><span id="cyStatus">Available</span></div>
-        <div id="cyList" class="journey-list"></div>
-        <button class="add-driver" data-driver="CY">+ CY Journey</button>
-      </article>
-    </section>
+    <section id="driversGrid" class="drivers-grid"></section>
   </main>
 
   <dialog id="journeyDialog">
-    <form id="journeyForm" method="dialog">
-      <h2 id="dialogTitle">Add Journey</h2>
-      <input id="journeyId" type="hidden">
+    <form method="dialog" id="journeyForm" class="dialog-card">
+      <h2 id="journeyTitle">Add Journey</h2>
+      <input type="hidden" id="journeyId" />
 
-      <label>Passenger(s)
-        <input id="passengers" required placeholder="E, J, R, M+JO">
+      <label>Passenger name
+        <input id="passengerInput" required placeholder="E, M, JB & ROS" />
       </label>
 
-      <label>From
-        <select id="fromLoc">
-          <option value="Home">Home</option>
-          <option value="Unit Base">Unit Base</option>
-          <option value="SET">SET</option>
-        </select>
-      </label>
+      <div class="two">
+        <label>From
+          <select id="fromInput">
+            <option value="H">Home</option>
+            <option value="UB">Unit Base</option>
+            <option value="ST">SET</option>
+          </select>
+        </label>
+        <label>To
+          <select id="toInput">
+            <option value="UB">Unit Base</option>
+            <option value="ST">SET</option>
+            <option value="H">Home</option>
+          </select>
+        </label>
+      </div>
 
-      <label>To
-        <select id="toLoc">
-          <option value="Home">Home</option>
-          <option value="Unit Base">Unit Base</option>
-          <option value="SET">SET</option>
-        </select>
-      </label>
-
-      <label>Leave time
-        <input id="leaveTime" type="time" required>
-      </label>
-
-      <label>Escort
-        <select id="driver">
-          <option>MK</option>
-          <option>CY</option>
-        </select>
-      </label>
+      <div class="two">
+        <label>Leave time
+          <input id="timeInput" type="time" required />
+        </label>
+        <label>Driver
+          <select id="driverInput"></select>
+        </label>
+      </div>
 
       <div class="dialog-actions">
-        <button type="button" id="deleteJourney" class="danger hidden">Delete</button>
+        <button type="button" id="deleteJourneyBtn" class="danger hidden">Delete</button>
+        <span></span>
         <button type="button" onclick="journeyDialog.close()">Cancel</button>
-        <button class="primary" type="submit">Save</button>
+        <button class="primary" value="default">Save</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="settingsDialog">
-    <form id="settingsForm" method="dialog">
-      <h2>Travel Times</h2>
-      <label>Home → Unit Base minutes
-        <input id="minsHU" type="number" min="1" value="15">
-      </label>
-      <label>Unit Base → SET minutes
-        <input id="minsUS" type="number" min="1" value="15">
-      </label>
+    <form method="dialog" id="settingsForm" class="dialog-card wide">
+      <h2>Settings</h2>
+
+      <h3>Travel times</h3>
+      <div class="two">
+        <label>Home → Unit Base minutes
+          <input id="timeHUB" type="number" min="1" max="240" />
+        </label>
+        <label>Unit Base → SET minutes
+          <input id="timeUBST" type="number" min="1" max="240" />
+        </label>
+      </div>
+
+      <h3>Drivers <small>(up to 5)</small></h3>
+      <div id="driversSettings"></div>
+      <button type="button" id="addDriverBtn">+ Add Driver</button>
+
       <div class="dialog-actions">
+        <span></span><span></span>
         <button type="button" onclick="settingsDialog.close()">Cancel</button>
-        <button class="primary" type="submit">Save</button>
+        <button class="primary" value="default">Save</button>
       </div>
     </form>
   </dialog>

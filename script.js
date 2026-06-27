@@ -1,65 +1,80 @@
-const LOC={H:'Home',UB:'Unit Base',ST:'SET'};
-const STORAGE='makb-transpo-v2';
-const $=id=>document.getElementById(id);
-const todayISO=()=>new Date().toISOString().slice(0,10);
-const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
-const niceDate=iso=>new Date(iso+'T12:00:00').toLocaleDateString('en-IE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m};
-const toTime=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
-
-let app=JSON.parse(localStorage.getItem(STORAGE)||'null')||{currentDate:todayISO(),settings:{minsHU:15,minsUS:15},schedules:{}};
-function save(){localStorage.setItem(STORAGE,JSON.stringify(app))}
-function blankSchedule(){return{journeys:[]}}
-function sampleSchedule(){return{journeys:[
-  {id:crypto.randomUUID(),p:'E',from:LOC.H,to:LOC.UB,time:'06:55',driver:'MK'},
-  {id:crypto.randomUUID(),p:'E',from:LOC.UB,to:LOC.ST,time:'08:15',driver:'MK'},
-  {id:crypto.randomUUID(),p:'R',from:LOC.H,to:LOC.UB,time:'07:20',driver:'CY'},
-  {id:crypto.randomUUID(),p:'J + R',from:LOC.UB,to:LOC.ST,time:'08:50',driver:'MK'},
-  {id:crypto.randomUUID(),p:'JO',from:LOC.H,to:LOC.UB,time:'08:10',driver:'CY'},
-  {id:crypto.randomUUID(),p:'M',from:LOC.H,to:LOC.UB,time:'08:45',driver:'CY'},
-  {id:crypto.randomUUID(),p:'M + JO',from:LOC.UB,to:LOC.ST,time:'09:35',driver:'CY'}
-]}}
-function schedule(iso=app.currentDate){if(!app.schedules[iso]) app.schedules[iso]=iso===todayISO()?sampleSchedule():blankSchedule();return app.schedules[iso]}
-function tripMins(j){if(j.from===LOC.H&&j.to===LOC.UB)return app.settings.minsHU;if(j.from===LOC.UB&&j.to===LOC.ST)return app.settings.minsUS;return 15}
-function endMin(j){return toMin(j.time)+tripMins(j)}
-function endTime(j){return toTime(endMin(j))}
-function overlaps(a,b){return toMin(a.time)<endMin(b)&&toMin(b.time)<endMin(a)}
-function otherDriver(d){return d==='MK'?'CY':'MK'}
-function isFree(driver,trip,ignoreId){return !schedule().journeys.some(j=>j.driver===driver&&j.id!==ignoreId&&overlaps(j,trip))}
-function findConflicts(){const out=[];for(const d of ['MK','CY']){const js=schedule().journeys.filter(j=>j.driver===d);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlaps(js[i],js[k]))out.push([js[i],js[k],d])}return out}
-function setDate(iso){app.currentDate=iso;render()}
-function cloneTodayToCurrent(){const source=schedule(todayISO());app.schedules[app.currentDate]={journeys:source.journeys.map(j=>({...j,id:crypto.randomUUID()}))};render()}
-function moveTrip(id,driver){schedule().journeys=schedule().journeys.map(j=>j.id===id?{...j,driver}:j);render(id)}
-window.moveTrip=moveTrip;
-
-function render(focusId=null){
-  const s=schedule();
-  $('dateTitle').textContent=niceDate(app.currentDate);
-  const today=todayISO();
-  $('scheduleStatus').textContent=app.currentDate===today?'🟢 LIVE TODAY':app.currentDate>today?'🟡 DRAFT':'🔒 PAST DAY';
-  const conflicts=findConflicts(); const bad=new Set(); conflicts.forEach(([a,b])=>{bad.add(a.id);bad.add(b.id)});
-  for(const d of ['MK','CY']){
-    const list=$(d==='MK'?'mkList':'cyList'); list.innerHTML='';
-    s.journeys.filter(j=>j.driver===d).sort((a,b)=>toMin(a.time)-toMin(b.time)).forEach(j=>{
-      const btn=document.createElement('button'); btn.id='trip-'+j.id; btn.className='journey '+(bad.has(j.id)?'conflict ':'')+(j.id===focusId?'new-conflict ':'');
-      btn.innerHTML=`<div class="time">${j.time}</div><div><div class="route">${j.from} → ${j.to}</div><div class="arrive">Arrive ${endTime(j)}</div></div><div class="bubble">${j.p}</div>`;
-      btn.onclick=()=>openJourney(j); list.appendChild(btn);
-    })
-  }
-  $('mkStatus').textContent=conflicts.some(c=>c[2]==='MK')?'Conflict 🔴':'Available ✅';
-  $('cyStatus').textContent=conflicts.some(c=>c[2]==='CY')?'Conflict 🔴':'Available ✅';
-  const warning=$('warning'); warning.classList.toggle('hidden',conflicts.length===0);
-  if(conflicts.length){
-    const [a,b,d]=conflicts[0]; const newer=focusId&&[a.id,b.id].includes(focusId)?s.journeys.find(j=>j.id===focusId):b; const old=newer.id===a.id?b:a; const alt=otherDriver(newer.driver); const can=isFree(alt,newer,newer.id);
-    warning.innerHTML=`🔴 <b>Conflict</b><br>${newer.driver} is double-booked.<br><br>Existing: <b>${old.p}</b> ${old.from} → ${old.to}, ${old.time}–${endTime(old)}<br>Clashing: <b>${newer.p}</b> ${newer.from} → ${newer.to}, ${newer.time}–${endTime(newer)}<br><br>${can?`✅ Fix: <button onclick="moveTrip('${newer.id}','${alt}')">Move ${newer.p} to ${alt}</button>`:'No escort is free at this time.'}`;
-    setTimeout(()=>document.getElementById('trip-'+old.id)?.scrollIntoView({behavior:'smooth',block:'center'}),80);
-  }
-  save();
+const STORE='makb-transpo-v2-clean';
+const defaultState={
+  travel:{HUB:15,UBST:15},
+  drivers:[{id:id(),name:'MK'},{id:id(),name:'CY'}],
+  selectedDate:todayKey(),
+  schedules:{}
+};
+function id(){return Math.random().toString(36).slice(2,10)}
+function todayKey(){return new Date().toISOString().slice(0,10)}
+function clone(x){return JSON.parse(JSON.stringify(x))}
+let state=JSON.parse(localStorage.getItem(STORE)||'null')||clone(defaultState);
+if(!state.schedules[todayKey()]) state.schedules[todayKey()]=sampleJourneys();
+const $=s=>document.querySelector(s);
+const driversGrid=$('#driversGrid'), warning=$('#warning');
+function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function schedule(){return state.schedules[state.selectedDate] ||= []}
+function min(t){const [h,m]=t.split(':').map(Number);return h*60+m}
+function time(m){m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function dur(j){if(j.from==='H'&&j.to==='UB')return Number(state.travel.HUB)||15;if(j.from==='UB'&&j.to==='ST')return Number(state.travel.UBST)||15;return 15}
+function end(j){return min(j.time)+dur(j)}
+function label(loc){return ({H:'Home',UB:'Unit Base',ST:'SET'}[loc]||loc)}
+function route(j){return `${label(j.from)} → ${label(j.to)}`}
+function overlaps(a,b){return min(a.time)<end(b)&&min(b.time)<end(a)}
+function sampleJourneys(){const mk='mk', cy='cy';return []}
+function ensureOldIds(){if(state.drivers.length&&state.drivers[0].id!=='mk'){state.drivers[0].id='mk'}if(state.drivers.length>1&&state.drivers[1].id!=='cy'){state.drivers[1].id='cy'}}
+ensureOldIds();
+if(schedule().length===0 && state.selectedDate===todayKey()){
+ state.schedules[state.selectedDate]=[
+  {id:id(),p:'E',from:'H',to:'UB',time:'06:55',driver:'mk'},
+  {id:id(),p:'JOS',from:'H',to:'UB',time:'08:10',driver:'mk'},
+  {id:id(),p:'M',from:'H',to:'UB',time:'08:45',driver:'mk'},
+  {id:id(),p:'M & JOS',from:'UB',to:'ST',time:'09:35',driver:'mk'},
+  {id:id(),p:'ROS',from:'H',to:'UB',time:'07:20',driver:'cy'},
+  {id:id(),p:'JB',from:'H',to:'UB',time:'07:50',driver:'cy'},
+  {id:id(),p:'E',from:'UB',to:'ST',time:'08:15',driver:'cy'},
+  {id:id(),p:'JB & ROS',from:'UB',to:'ST',time:'08:50',driver:'cy'}
+ ];
 }
-
-function openJourney(j=null,driver='MK'){$('journeyDialog').showModal();$('dialogTitle').textContent=j?'Edit Journey':'Add Journey';$('journeyId').value=j?.id||'';$('passengers').value=j?.p||'';$('fromLoc').value=j?.from||LOC.H;$('toLoc').value=j?.to||LOC.UB;$('leaveTime').value=j?.time||'09:00';$('driver').value=j?.driver||driver;$('deleteJourney').classList.toggle('hidden',!j)}
-$('journeyForm').addEventListener('submit',e=>{e.preventDefault();const id=$('journeyId').value;const j={id:id||crypto.randomUUID(),p:$('passengers').value,from:$('fromLoc').value,to:$('toLoc').value,time:$('leaveTime').value,driver:$('driver').value};const s=schedule();s.journeys=id?s.journeys.map(x=>x.id===id?j:x):[...s.journeys,j];$('journeyDialog').close();render(j.id)});
-$('deleteJourney').onclick=()=>{schedule().journeys=schedule().journeys.filter(j=>j.id!==$('journeyId').value);$('journeyDialog').close();render()};
-$('prevDay').onclick=()=>setDate(addDays(app.currentDate,-1));$('nextDay').onclick=()=>setDate(addDays(app.currentDate,1));$('todayBtn').onclick=()=>setDate(todayISO());$('tomorrowBtn').onclick=()=>setDate(addDays(todayISO(),1));$('copyTodayBtn').onclick=()=>{if(app.currentDate===todayISO())return alert('Choose tomorrow or another day first.'); if(confirm('Copy today’s schedule to this day?'))cloneTodayToCurrent()};$('addJourneyBtn').onclick=()=>openJourney();document.querySelectorAll('.add-driver').forEach(b=>b.onclick=()=>openJourney(null,b.dataset.driver));$('settingsBtn').onclick=()=>{$('minsHU').value=app.settings.minsHU;$('minsUS').value=app.settings.minsUS;$('settingsDialog').showModal()};$('settingsForm').addEventListener('submit',e=>{e.preventDefault();app.settings.minsHU=Number($('minsHU').value)||15;app.settings.minsUS=Number($('minsUS').value)||15;$('settingsDialog').close();render()});
+function conflicts(){const out=[];for(const d of state.drivers){const js=schedule().filter(j=>j.driver===d.id);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlaps(js[i],js[k]))out.push({a:js[i],b:js[k],driver:d});}return out}
+function isFree(driverId,trip,ignore){return !schedule().some(j=>j.driver===driverId&&j.id!==ignore&&overlaps(j,trip))}
+function render(focusId=null){
+ const bad=new Set(); const cs=conflicts(); cs.forEach(c=>{bad.add(c.a.id);bad.add(c.b.id)});
+ driversGrid.innerHTML='';
+ state.drivers.forEach(d=>{
+  const card=document.createElement('section');card.className='driver-card';
+  const hasBad=schedule().some(j=>j.driver===d.id&&bad.has(j.id));
+  card.innerHTML=`<div class="driver-head"><div class="driver-title">🚗 ${d.name}</div><div class="status ${hasBad?'bad':''}">${hasBad?'Conflict 🔴':'Available ✅'}</div></div><div class="list"></div>`;
+  const list=card.querySelector('.list');
+  schedule().filter(j=>j.driver===d.id).sort((a,b)=>min(a.time)-min(b.time)).forEach(j=>{
+   const btn=document.createElement('button');btn.className=`journey ${bad.has(j.id)?'conflict':''} ${j.id===focusId?'focus':''}`;btn.id='trip-'+j.id;
+   btn.innerHTML=`<div class="time">${j.time}</div><div><div class="route">${route(j)}</div><div class="arrive">Arrive ${time(end(j))}</div></div><div class="bubble">${j.p}</div>`;
+   btn.onclick=()=>openJourney(j); list.appendChild(btn);
+  });
+  driversGrid.appendChild(card);
+ });
+ renderWarning(cs,focusId); save();
+}
+function renderWarning(cs,focusId){
+ if(!cs.length){warning.classList.add('hidden');warning.innerHTML='';return}
+ const c=cs[0]; const newer=focusId==c.a.id?c.a:focusId==c.b.id?c.b:c.b; const old=newer.id===c.a.id?c.b:c.a;
+ const alternatives=state.drivers.filter(d=>d.id!==newer.driver&&isFree(d.id,newer,newer.id));
+ warning.classList.remove('hidden');
+ warning.innerHTML=`🔴 <b>Conflict</b><br>${c.driver.name} is double booked.<br><br>Clash 1: <b>${old.p}</b> ${route(old)} ${old.time}–${time(end(old))}<br>Clash 2: <b>${newer.p}</b> ${route(newer)} ${newer.time}–${time(end(newer))}<br>${alternatives.length?`<button data-move="${alternatives[0].id}">Move ${newer.p} to ${alternatives[0].name}</button>`:'<br>No other driver is free at this time.'}`;
+ const mv=warning.querySelector('[data-move]'); if(mv) mv.onclick=()=>{newer.driver=mv.dataset.move;render(newer.id)};
+ setTimeout(()=>document.getElementById('trip-'+old.id)?.scrollIntoView({behavior:'smooth',block:'center'}),80);
+}
+function fillDriverSelect(){const sel=$('#driverInput');sel.innerHTML=state.drivers.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
+function openJourney(j){fillDriverSelect();$('#journeyTitle').textContent=j?'Edit Journey':'Add Journey';$('#journeyId').value=j?.id||'';$('#passengerInput').value=j?.p||'';$('#fromInput').value=j?.from||'H';$('#toInput').value=j?.to||'UB';$('#timeInput').value=j?.time||'09:00';$('#driverInput').value=j?.driver||state.drivers[0].id;$('#deleteJourneyBtn').classList.toggle('hidden',!j);journeyDialog.showModal()}
+$('#journeyForm').onsubmit=e=>{e.preventDefault();const existing=$('#journeyId').value;const j={id:existing||id(),p:$('#passengerInput').value.trim(),from:$('#fromInput').value,to:$('#toInput').value,time:$('#timeInput').value,driver:$('#driverInput').value};if(existing){const i=schedule().findIndex(x=>x.id===existing);schedule()[i]=j}else schedule().push(j);journeyDialog.close();render(j.id)};
+$('#deleteJourneyBtn').onclick=()=>{state.schedules[state.selectedDate]=schedule().filter(j=>j.id!==$('#journeyId').value);journeyDialog.close();render()};
+$('#addJourneyBtn').onclick=()=>openJourney();
+$('#settingsBtn').onclick=()=>{renderSettings();settingsDialog.showModal()};
+function renderSettings(){ $('#timeHUB').value=state.travel.HUB; $('#timeUBST').value=state.travel.UBST; const box=$('#driversSettings'); box.innerHTML=''; state.drivers.forEach((d,i)=>{const row=document.createElement('div');row.className='driver-setting';row.innerHTML=`<label>Driver ${i+1}<input data-driver-name="${d.id}" value="${d.name}"></label><button type="button" data-del="${d.id}" ${state.drivers.length<=1?'disabled':''}>Delete</button>`;box.appendChild(row)});box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Delete this driver? Journeys stay but will need another driver.')){state.drivers=state.drivers.filter(d=>d.id!==b.dataset.del);schedule().forEach(j=>{if(j.driver===b.dataset.del)j.driver=state.drivers[0].id});renderSettings()}})}
+$('#addDriverBtn').onclick=()=>{if(state.drivers.length>=5){alert('Maximum 5 drivers');return}state.drivers.push({id:id(),name:'Driver '+(state.drivers.length+1)});renderSettings()};
+$('#settingsForm').onsubmit=e=>{e.preventDefault();state.travel.HUB=Number($('#timeHUB').value)||15;state.travel.UBST=Number($('#timeUBST').value)||15;document.querySelectorAll('[data-driver-name]').forEach(inp=>{const d=state.drivers.find(x=>x.id===inp.dataset.driverName);if(d)d.name=inp.value.trim()||d.name});settingsDialog.close();render()};
+$('#clearBtn').onclick=()=>{if(confirm('Clear this day?')){state.schedules[state.selectedDate]=[];render()}};
+$('#copyBtn').onclick=()=>{state.schedules[state.selectedDate]=clone(state.schedules[todayKey()]||[]).map(j=>({...j,id:id()}));render()};
+$('#todayBtn').onclick=()=>{state.selectedDate=todayKey();render()};
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 render();
