@@ -1,4 +1,67 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transport Coordinator V3</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css"></head><body><header><div><h1>Transport Coordinator</h1><p>H = Home · UB = Unit Base · ST = SET</p></div><button id="todayBtn">Today</button></header><main><section class="toolbar"><input id="datePick" type="date"><button id="addJourney">+ Add Journey</button><button id="settingsBtn">⚙ Settings</button><button id="copyToday">Copy Today → This Day</button><button id="clearDay">Clear This Day</button></section><div id="warning" class="warning hidden"></div><section id="drivers" class="drivers"></section></main>
-<dialog id="journeyDialog"><form method="dialog" id="journeyForm"><h2 id="journeyTitle">Journey</h2><input type="hidden" id="journeyId"><label>Passenger name<input id="passenger" required></label><label>From<select id="from"><option>Home</option><option>Unit Base</option><option>SET</option></select></label><label>To<select id="to"><option>Unit Base</option><option>SET</option><option>Home</option></select></label><label>Leave time<input id="time" type="time" required></label><label>Driver<select id="driver"></select></label><menu><button type="button" id="deleteJourney" class="danger">Delete</button><button type="button" onclick="journeyDialog.close()">Cancel</button><button value="default">Save</button></menu></form></dialog>
-<dialog id="settingsDialog"><form method="dialog" id="settingsForm"><h2>Settings</h2><h3>Travel times</h3><label>Home → Unit Base minutes<input id="tHU" type="number" min="1"></label><label>Unit Base → SET minutes<input id="tUS" type="number" min="1"></label><h3>Drivers <small>(up to 5)</small></h3><div id="driverSettings"></div><button type="button" id="addDriver">+ Add Driver</button><menu><button type="button" onclick="settingsDialog.close()">Cancel</button><button value="default">Save</button></menu></form></dialog>
-<script src="script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Transport Coordinator V3.1</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div><h1>Transport Coordinator</h1><p id="subtitle">Any pickup → any destination</p></div>
+    <button id="settingsBtn" class="pill">⚙ Settings</button>
+  </header>
+
+  <main class="wrap">
+    <section class="toolbar">
+      <button id="addJourneyBtn" class="primary">+ Add Journey</button>
+      <button id="copyBtn">Copy Today → This Day</button>
+      <button id="clearBtn" class="danger">Clear This Day</button>
+      <input id="datePick" type="date" />
+    </section>
+
+    <div id="warning" class="warning hidden"></div>
+    <section id="drivers" class="drivers"></section>
+  </main>
+
+  <dialog id="journeyDlg">
+    <form id="journeyForm" method="dialog" class="dlg">
+      <h2 id="journeyTitle">Journey</h2>
+      <input type="hidden" id="journeyId" />
+      <label>Passenger / Group <input id="passenger" required placeholder="E or M & JO" /></label>
+      <div class="grid2">
+        <label>Pickup <select id="from"></select></label>
+        <label>Destination <select id="to"></select></label>
+      </div>
+      <div class="grid2">
+        <label>Leave time <input id="time" type="time" required /></label>
+        <label>Driver <select id="driver"></select></label>
+      </div>
+      <p id="routeHint" class="hint"></p>
+      <div class="actions">
+        <button type="button" id="deleteJourney" class="danger hidden">Delete</button>
+        <button type="button" onclick="document.getElementById('journeyDlg').close()">Cancel</button>
+        <button class="primary" id="saveJourney">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDlg">
+    <form method="dialog" class="dlg wide">
+      <h2>Settings</h2>
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="places">Places</button>
+        <button type="button" class="tab" data-tab="routes">Travel Times</button>
+        <button type="button" class="tab" data-tab="driversTab">Drivers</button>
+      </div>
+      <section id="places" class="tabPanel"></section>
+      <section id="routes" class="tabPanel hidden"></section>
+      <section id="driversTab" class="tabPanel hidden"></section>
+      <div class="actions"><button class="primary">Done</button></div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
