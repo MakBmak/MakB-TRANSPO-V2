@@ -1,10 +1,10 @@
-# Transport Coordinator V3.1
+# Transport Coordinator
 
-Phone-friendly transport scheduling app.
+Colourful phone-first transport scheduling app.
 
-New in V3.1:
-- Add pickup points and destinations
-- Set travel times for any route
-- Add/rename/delete drivers up to 5
-- Edit passenger names by tapping a journey
-- Conflict highlighting and move-to-free-driver fixes
+Features:
+- Phone-first journey cards
+- Editable pickup points and destinations
+- Editable route travel times
+- Up to 5 drivers
+- Conflict highlighting and move-to-driver fix button

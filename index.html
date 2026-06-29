@@ -2,63 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Transport Coordinator V3.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Transport Coordinator</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="top">
-    <div><h1>Transport Coordinator</h1><p id="subtitle">Any pickup → any destination</p></div>
-    <button id="settingsBtn" class="pill">⚙ Settings</button>
+  <header class="app-header">
+    <div>
+      <h1>Transport Coordinator</h1>
+      <p id="dateLabel">Today</p>
+    </div>
+    <button id="todayBtn" class="pill light">Today</button>
   </header>
 
-  <main class="wrap">
+  <main class="app-shell">
     <section class="toolbar">
-      <button id="addJourneyBtn" class="primary">+ Add Journey</button>
-      <button id="copyBtn">Copy Today → This Day</button>
-      <button id="clearBtn" class="danger">Clear This Day</button>
-      <input id="datePick" type="date" />
+      <button id="prevDay" class="tool secondary">← Day</button>
+      <button id="nextDay" class="tool secondary">Day →</button>
+      <button id="addJourney" class="tool primary">+ Journey</button>
+      <button id="settingsBtn" class="tool settings">⚙ Settings</button>
     </section>
 
-    <div id="warning" class="warning hidden"></div>
-    <section id="drivers" class="drivers"></section>
+    <section id="warning" class="warning hidden"></section>
+    <section id="driversBoard" class="drivers-board"></section>
   </main>
 
-  <dialog id="journeyDlg">
-    <form id="journeyForm" method="dialog" class="dlg">
+  <dialog id="journeyDialog" class="modal">
+    <form id="journeyForm" method="dialog">
       <h2 id="journeyTitle">Journey</h2>
       <input type="hidden" id="journeyId" />
-      <label>Passenger / Group <input id="passenger" required placeholder="E or M & JO" /></label>
-      <div class="grid2">
-        <label>Pickup <select id="from"></select></label>
-        <label>Destination <select id="to"></select></label>
-      </div>
-      <div class="grid2">
-        <label>Leave time <input id="time" type="time" required /></label>
-        <label>Driver <select id="driver"></select></label>
-      </div>
-      <p id="routeHint" class="hint"></p>
-      <div class="actions">
+
+      <label>Passenger name
+        <input id="passenger" required placeholder="E / JOS / M & JO" />
+      </label>
+
+      <label>Pickup point
+        <select id="fromPlace"></select>
+      </label>
+
+      <label>Destination
+        <select id="toPlace"></select>
+      </label>
+
+      <label>Leave time
+        <input id="leaveTime" type="time" required />
+      </label>
+
+      <label>Driver
+        <select id="driverSelect"></select>
+      </label>
+
+      <div class="modal-actions">
         <button type="button" id="deleteJourney" class="danger hidden">Delete</button>
-        <button type="button" onclick="document.getElementById('journeyDlg').close()">Cancel</button>
-        <button class="primary" id="saveJourney">Save</button>
+        <button type="button" class="ghost" onclick="document.getElementById('journeyDialog').close()">Cancel</button>
+        <button class="save" value="default">Save</button>
       </div>
     </form>
   </dialog>
 
-  <dialog id="settingsDlg">
-    <form method="dialog" class="dlg wide">
+  <dialog id="settingsDialog" class="modal wide">
+    <form id="settingsForm" method="dialog">
       <h2>Settings</h2>
-      <div class="tabs">
-        <button type="button" class="tab active" data-tab="places">Places</button>
-        <button type="button" class="tab" data-tab="routes">Travel Times</button>
-        <button type="button" class="tab" data-tab="driversTab">Drivers</button>
+      <p class="hint">Add pickup points, destinations, route times, and up to 5 drivers.</p>
+
+      <h3>Drivers</h3>
+      <div id="driversSettings" class="settings-list"></div>
+      <button id="addDriver" type="button" class="mini add">+ Add Driver</button>
+
+      <h3>Places</h3>
+      <div id="placesSettings" class="settings-list"></div>
+      <button id="addPlace" type="button" class="mini add">+ Add Place</button>
+
+      <h3>Route Travel Times</h3>
+      <div id="routesSettings" class="settings-list"></div>
+      <button id="addRoute" type="button" class="mini add">+ Add Route Time</button>
+
+      <div class="modal-actions">
+        <button type="button" class="ghost" onclick="document.getElementById('settingsDialog').close()">Cancel</button>
+        <button class="save" value="default">Save Settings</button>
       </div>
-      <section id="places" class="tabPanel"></section>
-      <section id="routes" class="tabPanel hidden"></section>
-      <section id="driversTab" class="tabPanel hidden"></section>
-      <div class="actions"><button class="primary">Done</button></div>
     </form>
   </dialog>
 

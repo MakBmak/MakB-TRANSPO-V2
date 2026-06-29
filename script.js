@@ -1,78 +1,81 @@
-const KEY='tc_v31';
+const STORE='transportCoordinatorColourV1';
 const todayKey=()=>new Date().toISOString().slice(0,10);
-const id=()=>crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);
-const defaults={
+const addDays=(key,n)=>{const d=new Date(key+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const fmtDate=key=>new Date(key+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+const uid=()=>crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random());
+const $=id=>document.getElementById(id);
+const defaultData={
+  currentDate:todayKey(),
+  drivers:[{id:'mk',name:'MK',emoji:'🚗'},{id:'cy',name:'CY',emoji:'🚙'}],
   places:['Home','Unit Base','SET'],
-  drivers:['MK','CY'],
-  routeTimes:{'Home|||Unit Base':15,'Unit Base|||SET':15},
+  routes:{'Home||Unit Base':15,'Unit Base||SET':15},
   schedules:{}
 };
-function sample(){return[
- {id:id(),p:'E',from:'Home',to:'Unit Base',time:'06:55',driver:'MK'},
- {id:id(),p:'JOS',from:'Home',to:'Unit Base',time:'08:10',driver:'MK'},
- {id:id(),p:'M',from:'Home',to:'Unit Base',time:'08:45',driver:'MK'},
- {id:id(),p:'M & JOS',from:'Unit Base',to:'SET',time:'09:35',driver:'MK'},
- {id:id(),p:'ROS',from:'Home',to:'Unit Base',time:'07:20',driver:'CY'},
- {id:id(),p:'JB',from:'Home',to:'Unit Base',time:'07:50',driver:'CY'},
- {id:id(),p:'E',from:'Unit Base',to:'SET',time:'08:15',driver:'CY'},
- {id:id(),p:'JB & ROS',from:'Unit Base',to:'SET',time:'08:50',driver:'CY'}
-]}
-let state=JSON.parse(localStorage.getItem(KEY)||'null')||defaults;
-if(!state.schedules[todayKey()]) state.schedules[todayKey()]=sample();
-let currentDate=todayKey(), focusId=null;
-const $=s=>document.querySelector(s);
-const $$=s=>[...document.querySelectorAll(s)];
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
-function rk(a,b){return `${a}|||${b}`}
-function mins(a,b){return Number(state.routeTimes[rk(a,b)]||15)}
-function toMin(t){let [h,m]=t.split(':').map(Number);return h*60+m}
-function toTime(m){m=(m+1440)%1440;return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`}
-function end(j){return toMin(j.time)+mins(j.from,j.to)}
-function overlap(a,b){return toMin(a.time)<end(b)&&toMin(b.time)<end(a)}
-function day(){return state.schedules[currentDate]||(state.schedules[currentDate]=[])}
-function conflictList(){let out=[];for(const d of state.drivers){let js=day().filter(j=>j.driver===d);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlap(js[i],js[k]))out.push([js[i],js[k],d])}return out}
-function freeDrivers(trip,ignore){return state.drivers.filter(d=>!day().some(j=>j.id!==ignore&&j.driver===d&&overlap(j,{...trip,driver:d})))}
-function opts(sel,arr,val){sel.innerHTML=arr.map(x=>`<option ${x===val?'selected':''}>${x}</option>`).join('')}
-function render(){
- $('#datePick').value=currentDate; $('#subtitle').textContent=`${currentDate} • pickup points and destinations are editable`;
- const bad=new Set(); const conflicts=conflictList(); conflicts.forEach(([a,b])=>{bad.add(a.id);bad.add(b.id)});
- const wrap=$('#drivers'); wrap.innerHTML='';
- for(const d of state.drivers){
-   const trips=day().filter(j=>j.driver===d).sort((a,b)=>toMin(a.time)-toMin(b.time));
-   const card=document.createElement('section'); card.className='driver';
-   const has=trips.some(j=>bad.has(j.id));
-   card.innerHTML=`<div class="driverHead"><h2>🚗 ${d}</h2><span class="status ${has?'bad':''}">${has?'Conflict 🔴':'Available ✅'}</span></div>`;
-   trips.forEach(j=>{const b=document.createElement('button'); b.className=`journey ${bad.has(j.id)?'conflict':''} ${j.id===focusId?'focus':''}`; b.innerHTML=`<div class="time">${j.time}</div><div><div class="route">${j.from} → ${j.to}</div><div class="arrive">Arrive ${toTime(end(j))} • ${mins(j.from,j.to)} mins</div></div><div class="bubble">${j.p}</div>`; b.onclick=()=>openJourney(j); card.appendChild(b)});
-   wrap.appendChild(card);
+function sampleSchedule(){return[
+{id:uid(),p:'E',from:'Home',to:'Unit Base',time:'06:55',driver:'mk'},
+{id:uid(),p:'JOS',from:'Home',to:'Unit Base',time:'08:10',driver:'mk'},
+{id:uid(),p:'M',from:'Home',to:'Unit Base',time:'08:45',driver:'mk'},
+{id:uid(),p:'M & JOS',from:'Unit Base',to:'SET',time:'09:35',driver:'mk'},
+{id:uid(),p:'ROS',from:'Home',to:'Unit Base',time:'07:20',driver:'cy'},
+{id:uid(),p:'JB',from:'Home',to:'Unit Base',time:'07:50',driver:'cy'},
+{id:uid(),p:'E',from:'Unit Base',to:'SET',time:'08:15',driver:'cy'},
+{id:uid(),p:'JB & ROS',from:'Unit Base',to:'SET',time:'08:50',driver:'cy'}]}
+let data=JSON.parse(localStorage.getItem(STORE)||'null')||defaultData;
+if(!data.schedules[data.currentDate]) data.schedules[data.currentDate]=sampleSchedule();
+function save(){localStorage.setItem(STORE,JSON.stringify(data))}
+function mins(t){const [h,m]=t.split(':').map(Number);return h*60+m}
+function time(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function routeKey(a,b){return `${a}||${b}`}
+function duration(j){return Number(data.routes[routeKey(j.from,j.to)] ?? data.routes[routeKey(j.to,j.from)] ?? 15)}
+function endM(j){return mins(j.time)+duration(j)}
+function overlaps(a,b){return mins(a.time)<endM(b)&&mins(b.time)<endM(a)}
+function schedule(){return data.schedules[data.currentDate]||(data.schedules[data.currentDate]=[])}
+function conflicts(){let out=[];for(const d of data.drivers){let js=schedule().filter(j=>j.driver===d.id);for(let i=0;i<js.length;i++)for(let k=i+1;k<js.length;k++)if(overlaps(js[i],js[k]))out.push([js[i],js[k],d]);}return out}
+function driverName(id){return data.drivers.find(d=>d.id===id)?.name||id}
+function canMove(j,driverId){return !schedule().some(x=>x.id!==j.id&&x.driver===driverId&&overlaps(x,j))}
+function moveJourney(id,driverId){const j=schedule().find(x=>x.id===id); if(j) j.driver=driverId; render(id)}
+window.moveJourney=moveJourney;
+function optionList(sel,items,value){sel.innerHTML=items.map(x=>`<option ${x===value?'selected':''}>${x}</option>`).join('')}
+function driverOptions(sel,value){sel.innerHTML=data.drivers.map(d=>`<option value="${d.id}" ${d.id===value?'selected':''}>${d.name}</option>`).join('')}
+function render(focusId=null){
+ $('dateLabel').textContent=fmtDate(data.currentDate)+(data.currentDate===todayKey()?' • LIVE':' • DRAFT');
+ const bad=new Set(); const cs=conflicts(); cs.forEach(([a,b])=>{bad.add(a.id);bad.add(b.id)});
+ const board=$('driversBoard'); board.innerHTML='';
+ for(const d of data.drivers){
+  const js=schedule().filter(j=>j.driver===d.id).sort((a,b)=>mins(a.time)-mins(b.time));
+  const hasBad=js.some(j=>bad.has(j.id));
+  const card=document.createElement('section'); card.className='driver-card';
+  card.innerHTML=`<div class="driver-head"><div class="driver-name"><span class="car">${d.emoji||'🚗'}</span>${d.name}</div><div class="status ${hasBad?'bad':''}">${hasBad?'Conflict':'Available ✅'}</div></div><div class="journeys"></div>`;
+  const list=card.querySelector('.journeys');
+  if(!js.length) list.innerHTML='<div class="empty">No journeys</div>';
+  for(const j of js){
+   const btn=document.createElement('button'); btn.className='journey '+(bad.has(j.id)?'conflict ':'')+(j.id===focusId?'focus':''); btn.id='trip-'+j.id;
+   btn.innerHTML=`<div class="journey-time">${j.time}</div><div class="route-box"><div class="place">${j.from}</div><div class="arrow">↓</div><div class="place">${j.to}</div><div class="meta">Arrive ${time(endM(j))} • ${duration(j)} mins</div></div><div class="passenger-chip">${j.p}</div>`;
+   btn.onclick=()=>openJourney(j); list.appendChild(btn);
+  }
+  board.appendChild(card);
  }
- const w=$('#warning'); w.classList.toggle('hidden',!conflicts.length);
- if(conflicts.length){const [a,b,d]=conflicts[0]; const newest=focusId&&(a.id===focusId||b.id===focusId)?day().find(j=>j.id===focusId):b; const old=newest.id===a.id?b:a; const free=freeDrivers(newest,newest.id).filter(x=>x!==newest.driver); w.innerHTML=`🔴 <b>Conflict</b><br>${d} is already booked.<br><br>Clash 1: <b>${old.p}</b> ${old.from} → ${old.to}, ${old.time}–${toTime(end(old))}<br>Clash 2: <b>${newest.p}</b> ${newest.from} → ${newest.to}, ${newest.time}–${toTime(end(newest))}<br>${free[0]?`<br>✅ Fix available: <button onclick="moveTrip('${newest.id}','${free[0]}')">Move ${newest.p} to ${free[0]}</button>`:'<br>No other driver is free at this time.'}`;}
+ const warn=$('warning'); warn.classList.toggle('hidden',!cs.length);
+ if(cs.length){const [a,b,d]=cs[0]; const j=focusId&&(a.id===focusId||b.id===focusId)?schedule().find(x=>x.id===focusId):b; const other=data.drivers.find(x=>x.id!==j.driver&&canMove(j,x.id)); warn.innerHTML=`🔴 <b>Conflict</b><br>${driverName(j.driver)} has overlapping journeys.<br><br><b>${a.p}</b> ${a.from} → ${a.to}, ${a.time}–${time(endM(a))}<br><b>${b.p}</b> ${b.from} → ${b.to}, ${b.time}–${time(endM(b))}<br>${other?`<button onclick="moveJourney('${j.id}','${other.id}')">Move ${j.p} to ${other.name}</button>`:'<br>No free driver found for this time.'}`}
  save();
 }
-function moveTrip(jid,d){const j=day().find(x=>x.id===jid); if(j)j.driver=d; focusId=jid; render()}
-function openJourney(j){$('#journeyDlg').showModal(); $('#journeyId').value=j?.id||''; $('#passenger').value=j?.p||''; opts($('#from'),state.places,j?.from||state.places[0]); opts($('#to'),state.places,j?.to||state.places[Math.min(1,state.places.length-1)]); opts($('#driver'),state.drivers,j?.driver||state.drivers[0]); $('#time').value=j?.time||'09:00'; $('#deleteJourney').classList.toggle('hidden',!j); routeHint();}
-function routeHint(){const a=$('#from').value,b=$('#to').value; $('#routeHint').textContent=`Travel time: ${mins(a,b)} minutes. Change this in Settings → Travel Times.`}
-['from','to'].forEach(x=>$('#'+x).addEventListener('change',routeHint));
-$('#journeyForm').onsubmit=e=>{e.preventDefault(); const jid=$('#journeyId').value; const j={id:jid||id(),p:$('#passenger').value,from:$('#from').value,to:$('#to').value,time:$('#time').value,driver:$('#driver').value}; if(jid){const i=day().findIndex(x=>x.id===jid); day()[i]=j}else day().push(j); focusId=j.id; $('#journeyDlg').close(); render()};
-$('#deleteJourney').onclick=()=>{state.schedules[currentDate]=day().filter(j=>j.id!==$('#journeyId').value); $('#journeyDlg').close(); render()};
-$('#addJourneyBtn').onclick=()=>openJourney();
-$('#datePick').onchange=e=>{currentDate=e.target.value; focusId=null; render()};
-$('#clearBtn').onclick=()=>{if(confirm('Clear this day?')){state.schedules[currentDate]=[];render()}};
-$('#copyBtn').onclick=()=>{const src=state.schedules[todayKey()]||[]; state.schedules[currentDate]=src.map(j=>({...j,id:id()})); render()};
-$('#settingsBtn').onclick=()=>{renderSettings();$('#settingsDlg').showModal()};
-$$('.tab').forEach(t=>t.onclick=()=>{$$('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');$$('.tabPanel').forEach(p=>p.classList.add('hidden'));$('#'+t.dataset.tab).classList.remove('hidden')});
-function renderSettings(){
- $('#places').innerHTML=`<h3>Pickup points & destinations</h3><div class="addLine"><input id="newPlace" placeholder="New place, e.g. Hotel"><button type="button" onclick="addPlace()">Add Place</button></div>`+state.places.map((p,i)=>`<div class="row"><input value="${p}" onchange="renamePlace(${i},this.value)"><button type="button" class="small danger" onclick="delPlace(${i})">Delete</button></div>`).join('');
- $('#routes').innerHTML=`<h3>Travel Times</h3><p class="hint">Add times for the routes you use. If a route is missing, the app uses 15 minutes.</p><div class="row row3"><select id="rFrom">${state.places.map(p=>`<option>${p}</option>`).join('')}</select><select id="rTo">${state.places.map(p=>`<option>${p}</option>`).join('')}</select><input id="rMin" type="number" value="15" min="1"><button type="button" onclick="addRoute()">Save Route</button></div>`+Object.entries(state.routeTimes).map(([k,v])=>{let [a,b]=k.split('|||');return`<div class="row row3"><b>${a} → ${b}</b><span>${v} mins</span><span></span><button type="button" class="small danger" onclick="delRoute('${k}')">Delete</button></div>`}).join('');
- $('#driversTab').innerHTML=`<h3>Drivers, up to 5</h3><div class="addLine"><input id="newDriver" placeholder="New driver"><button type="button" onclick="addDriver()">Add Driver</button></div>`+state.drivers.map((d,i)=>`<div class="row"><input value="${d}" onchange="renameDriver(${i},this.value)"><button type="button" class="small danger" onclick="delDriver(${i})">Delete</button></div>`).join('');
+function openJourney(j=null){
+ $('journeyId').value=j?.id||''; $('journeyTitle').textContent=j?'Edit Journey':'Add Journey'; $('passenger').value=j?.p||''; optionList($('fromPlace'),data.places,j?.from||data.places[0]); optionList($('toPlace'),data.places,j?.to||data.places[1]||data.places[0]); $('leaveTime').value=j?.time||'09:00'; driverOptions($('driverSelect'),j?.driver||data.drivers[0].id); $('deleteJourney').classList.toggle('hidden',!j); $('journeyDialog').showModal();
 }
-function addPlace(){const v=$('#newPlace').value.trim(); if(v&&!state.places.includes(v)){state.places.push(v);renderSettings();render()}}
-function renamePlace(i,v){const old=state.places[i]; v=v.trim(); if(!v)return; state.places[i]=v; for(const sch of Object.values(state.schedules))sch.forEach(j=>{if(j.from===old)j.from=v;if(j.to===old)j.to=v}); const next={}; for(const [k,m] of Object.entries(state.routeTimes)){let [a,b]=k.split('|||'); if(a===old)a=v;if(b===old)b=v; next[rk(a,b)]=m} state.routeTimes=next; renderSettings();render()}
-function delPlace(i){if(state.places.length<=2)return alert('Keep at least two places.'); const p=state.places[i]; if(confirm('Delete '+p+'?')){state.places.splice(i,1); for(const k of Object.keys(state.routeTimes))if(k.includes(p+'|||')||k.includes('|||'+p))delete state.routeTimes[k]; renderSettings();render()}}
-function addRoute(){state.routeTimes[rk($('#rFrom').value,$('#rTo').value)]=Number($('#rMin').value)||15;renderSettings();render()}
-function delRoute(k){delete state.routeTimes[k];renderSettings();render()}
-function addDriver(){const v=$('#newDriver').value.trim(); if(state.drivers.length>=5)return alert('Maximum 5 drivers.'); if(v&&!state.drivers.includes(v)){state.drivers.push(v);renderSettings();render()}}
-function renameDriver(i,v){const old=state.drivers[i]; v=v.trim(); if(!v)return; state.drivers[i]=v; for(const sch of Object.values(state.schedules))sch.forEach(j=>{if(j.driver===old)j.driver=v}); renderSettings();render()}
-function delDriver(i){if(state.drivers.length<=1)return alert('Keep at least one driver.'); const d=state.drivers[i]; if(day().some(j=>j.driver===d)&&!confirm('This driver has journeys today. Delete anyway?'))return; state.drivers.splice(i,1); renderSettings();render()}
+$('addJourney').onclick=()=>openJourney();
+$('journeyForm').onsubmit=e=>{e.preventDefault(); const id=$('journeyId').value||uid(); const j={id,p:$('passenger').value.trim()||'Passenger',from:$('fromPlace').value,to:$('toPlace').value,time:$('leaveTime').value,driver:$('driverSelect').value}; const s=schedule(); const i=s.findIndex(x=>x.id===id); if(i>=0)s[i]=j; else s.push(j); $('journeyDialog').close(); render(id)};
+$('deleteJourney').onclick=()=>{data.schedules[data.currentDate]=schedule().filter(j=>j.id!==$('journeyId').value); $('journeyDialog').close(); render()};
+$('prevDay').onclick=()=>{data.currentDate=addDays(data.currentDate,-1);render()}; $('nextDay').onclick=()=>{data.currentDate=addDays(data.currentDate,1);render()}; $('todayBtn').onclick=()=>{data.currentDate=todayKey();render()};
+function renderSettings(){
+ const ds=$('driversSettings'); ds.innerHTML=''; data.drivers.forEach((d,i)=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<input value="${d.name}" data-driver="${d.id}"><button type="button" class="remove" data-remove-driver="${d.id}">×</button>`;ds.appendChild(r)});
+ const ps=$('placesSettings'); ps.innerHTML=''; data.places.forEach((p,i)=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<input value="${p}" data-place-index="${i}"><button type="button" class="remove" data-remove-place="${i}">×</button>`;ps.appendChild(r)});
+ const rs=$('routesSettings'); rs.innerHTML=''; Object.entries(data.routes).forEach(([k,v])=>{const [a,b]=k.split('||'); const r=document.createElement('div');r.className='route-row';r.innerHTML=`<select data-route-from>${data.places.map(p=>`<option ${p===a?'selected':''}>${p}</option>`).join('')}</select><select data-route-to>${data.places.map(p=>`<option ${p===b?'selected':''}>${p}</option>`).join('')}</select><input type="number" min="1" value="${v}" data-route-mins><button type="button" class="remove" data-remove-route>×</button>`;rs.appendChild(r)});
+}
+$('settingsBtn').onclick=()=>{renderSettings();$('settingsDialog').showModal()};
+$('addDriver').onclick=()=>{if(data.drivers.length>=5){alert('Maximum 5 drivers');return} data.drivers.push({id:uid(),name:'Driver '+(data.drivers.length+1),emoji:'🚗'}); renderSettings()};
+$('addPlace').onclick=()=>{data.places.push('New Place'); renderSettings()};
+$('addRoute').onclick=()=>{if(data.places.length<2)return; data.routes[routeKey(data.places[0],data.places[1])]=15; renderSettings()};
+$('settingsDialog').addEventListener('click',e=>{ if(e.target.dataset.removeDriver){if(data.drivers.length<=1)return; data.drivers=data.drivers.filter(d=>d.id!==e.target.dataset.removeDriver); renderSettings()} if(e.target.dataset.removePlace){data.places.splice(Number(e.target.dataset.removePlace),1); renderSettings()} if(e.target.dataset.removeRoute!==undefined){e.target.closest('.route-row').remove()} });
+$('settingsForm').onsubmit=e=>{e.preventDefault(); document.querySelectorAll('[data-driver]').forEach(inp=>{const d=data.drivers.find(x=>x.id===inp.dataset.driver); if(d)d.name=inp.value.trim()||d.name}); const oldPlaces=[...data.places]; data.places=[...document.querySelectorAll('[data-place-index]')].map(i=>i.value.trim()).filter(Boolean); schedule().forEach(j=>{const fi=oldPlaces.indexOf(j.from), ti=oldPlaces.indexOf(j.to); if(fi>=0)j.from=data.places[fi]||j.from; if(ti>=0)j.to=data.places[ti]||j.to}); const routes={}; document.querySelectorAll('.route-row').forEach(r=>{const a=r.querySelector('[data-route-from]').value,b=r.querySelector('[data-route-to]').value,m=Number(r.querySelector('[data-route-mins]').value)||15; if(a&&b&&a!==b)routes[routeKey(a,b)]=m}); data.routes=routes; $('settingsDialog').close(); render()};
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 render();
